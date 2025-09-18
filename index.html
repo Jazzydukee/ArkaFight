@@ -1,0 +1,1198 @@
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Picchiaduro Web</title>
+  <script type="module"  src="main.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3/dist/phaser.min.js"></script>
+    <style>
+    html, body { 
+  height: 100%; 
+  margin: 0; 
+  padding: 0;
+  background: #0f1020; 
+  overflow: hidden;
+}
+#game { 
+  display: flex; 
+  align-items: center; 
+  justify-content: center; 
+  height: 100vh; 
+  width: 100vw;
+}
+canvas {
+  display: block;
+}
+  </style>
+</head>
+<body>
+  <div id="game"></div>
+<script>
+const GAME_W = 960;
+const GAME_H = 540;
+
+const gameState = {
+  selectedArena: null,
+  player1: null,
+  player2: null
+};
+
+
+
+
+const FIGHTERS = {
+  maggi: { name: 'Maggi', color: 0x4fc3f7, stats: { health: 100, speed: 260, jump: 520, damage: 6 },scale:undefined},
+  livio: { name: 'Livio', color: 0xff8a65, stats: { health: 100, speed: 280, jump: 520, damage: 6 },scale: 1.71, },
+  melia: { name: 'Meliador', color: 0xff8a21, stats: { health: 100, speed: 280, jump: 520, damage: 6 },scale: 1.71 },
+  trono: { name: 'Trono', color: 0xff8a21, stats: { health: 100, speed: 280, jump: 520, damage: 6 },scale:2 },
+  massicande: { name: 'Massicande', color: 0xff8a21, stats: { health: 100, speed: 280, jump: 520, damage: 6 },scale:1.82 },
+  maronn: { name: 'Maronn', color: 0xff8a21, stats: { health: 100, speed: 280, jump: 520, damage: 10 },scale:undefined },
+
+};
+
+const FIGHTER_SOUNDS = {
+  maggi: { start: 'maggi_sound1'},
+  livio: { start: 'livio_sound1'},  
+  melia: { start: 'melia_sound1'},
+  massicande: { start: 'massi_sound1'},
+  trono: { start: 'trono_sound1' }, // puoi cambiare win con un altro file
+};
+
+                                                 
+                                                   //SELEZIONE ARENA
+const ARENAS = {
+  arena1: { name: "CAMPO_K", image: "https://i.imgur.com/5NiwzJF.png" },
+  arena2: { name: "CAMPETTO_DELL'_UMILIAZIONE", image: "https://i.imgur.com/WnfCM2Z.png" },
+  arena3: { name: "MICIGLIANO", image: "https://i.imgur.com/Lp5c3G7.png" },
+
+
+};
+
+
+
+// Funzione globale per ridimensionare mantenendo le proporzioni
+function fitImage(img, maxW, maxH) {
+  const scaleX = maxW / img.width;
+  const scaleY = maxH / img.height;
+  const scale = Math.min(scaleX, scaleY);
+  img.setScale(scale);
+}
+
+
+// =======================
+// Preload Scene
+// =======================
+class PreloadScene extends Phaser.Scene {
+  constructor() { super({ key: 'Preload' }); }
+
+  preload() {
+
+    Object.entries(ARENAS).forEach(([key, arena]) => {
+  this.load.image(key, arena.image);
+});
+
+  this.load.audio('Boss', 'https://jazzydukee.github.io/Arka-Sounds/Iron__Fangs.mp3');
+  this.load.audio('Fight', 'https://jazzydukee.github.io/Arka-Sounds/Steel_Abyss.mp3');
+
+
+  //EFFETTI SONORI
+  this.load.audio('hit1', 'https://jazzydukee.github.io/Arka-Sounds/fist1.mp3');
+  this.load.audio('hit2', 'https://jazzydukee.github.io/Arka-Sounds/punchh.mp3');
+  this.load.audio('hit3', 'https://jazzydukee.github.io/Arka-Sounds/slap.mp3');
+
+
+
+
+
+// SCHERMATA CONTROLLI
+    
+this.load.image('controlsScreen', 'https://i.imgur.com/N2lHPXD.png');
+
+
+    // CARICAMENTO AVATAR SELEZIONE PERSONAGGI
+    console.log("Inizio caricamento immagini...");
+    this.load.image('Sfondo', 'https://i.imgur.com/5qRK2fq.png');
+    this.load.image('maggi', 'https://i.imgur.com/fyL7wDB.png');
+    this.load.image('livio', 'https://i.imgur.com/SNnLLUL.png');
+    this.load.image('melia', 'https://i.imgur.com/CMF6Ihp.png');
+    this.load.image('trono', 'https://i.imgur.com/0zbwjE8.png');
+    this.load.image('massicande', 'https://i.imgur.com/SZZIKIw.png');
+    this.load.image('maronn', 'https://i.imgur.com/clMyW1I.png')
+
+                                       //MAGGI PNG
+    const maggiAnims = [
+  { key: 'idle', url: 'https://i.imgur.com/8OSaQE0.png', frameWidth: 198, frameHeight: 200 },
+  { key: 'attack', url: 'https://i.imgur.com/8OSaQE0.png', frameWidth: 198, frameHeight: 200 },
+  { key: 'attack2', url: 'https://i.imgur.com/Ol5bPlm.png', frameWidth: 198, frameHeight: 200 },
+  { key: 'jump', url: 'https://i.imgur.com/8OSaQE0.png', frameWidth: 198, frameHeight: 200 },
+  { key: 'run', url: 'https://i.imgur.com/4SvyN35.png', frameWidth: 198, frameHeight: 200 },
+  { key: 'hit', url: 'https://i.imgur.com/YYjrb1v.png', frameWidth: 205, frameHeight: 220 }, //modificato per piede tagliato
+  { key: 'dead', url: 'https://i.imgur.com/0X1eyTL.png', frameWidth: 198, frameHeight: 220 },
+  { key: 'special', url: 'https://i.imgur.com/rij3dMy.png', frameWidth: 215, frameHeight: 200 },
+];
+
+maggiAnims.forEach(anim => {
+  this.load.spritesheet(`maggi_${anim.key}`, anim.url, { frameWidth: anim.frameWidth, frameHeight: anim.frameHeight });
+});
+                                          //MELIA PNG
+    const meliaAnims = [
+  { key: 'idle', url: 'https://i.imgur.com/qqGoqxj.png', frameWidth: 177, frameHeight: 258 },
+  { key: 'attack', url: 'https://i.imgur.com/A2IoVrk.png', frameWidth: 250, frameHeight: 258 },
+  { key: 'attack2', url: 'https://i.imgur.com/AXnT0RW.png', frameWidth: 208, frameHeight: 258 },
+  { key: 'jump', url: 'https://i.imgur.com/A2IoVrk.png', frameWidth: 250, frameHeight: 258 },
+  { key: 'run', url: 'https://i.imgur.com/ffdBAz7.png', frameWidth: 250, frameHeight: 258 },
+  { key: 'hit', url: 'https://i.imgur.com/2Wy04pm.png', frameWidth: 250, frameHeight: 258 },
+  { key: 'dead', url: 'https://i.imgur.com/A2IoVrk.png', frameWidth: 250, frameHeight: 258},
+  { key: 'special', url: 'https://i.imgur.com/2Wy04pm.png', frameWidth: 265, frameHeight: 258 },
+  ];
+
+  meliaAnims.forEach(anim => {
+  this.load.spritesheet(`melia_${anim.key}`, anim.url, { frameWidth: anim.frameWidth, frameHeight: anim.frameHeight });
+});
+
+                                    //LIVIO.PNG
+    const livioAnims = [
+  { key: 'idle', url: 'https://i.imgur.com/HjEdDwW.png', frameWidth: 250, frameHeight: 258 },
+  { key: 'attack', url: 'https://i.imgur.com/HjEdDwW.png', frameWidth: 250, frameHeight: 258 },
+  { key: 'attack2', url: 'https://i.imgur.com/Jdluk7n.png', frameWidth: 250, frameHeight: 300 }, //
+  { key: 'jump', url: 'https://i.imgur.com/Jdluk7n.png', frameWidth: 250, frameHeight: 288 },
+  { key: 'run', url: 'https://i.imgur.com/HjEdDwW.png', frameWidth: 250, frameHeight: 258 },     //  
+  { key: 'hit', url: 'https://i.imgur.com/Jdluk7n.png', frameWidth: 250, frameHeight: 300 },     //    
+  { key: 'dead', url: 'https://i.imgur.com/Jdluk7n.png', frameWidth: 250, frameHeight: 300 },    //
+  { key: 'special', url: 'https://i.imgur.com/hgT1aQJ.png', frameWidth: 237, frameHeight: 300 },
+];
+
+livioAnims.forEach(anim => {
+  this.load.spritesheet(`livio_${anim.key}`, anim.url, { frameWidth: anim.frameWidth, frameHeight: anim.frameHeight });
+});
+
+                                      //TRONO.PNG
+  const tronoAnims = [
+  { key: 'idle', url: 'https://i.imgur.com/GlfOHJO.png', frameWidth: 198 ,frameHeight: 200 },
+  { key: 'attack', url: 'https://i.imgur.com/yVM6PNE.png', frameWidth: 198, frameHeight: 200 },
+  { key: 'attack2', url: 'https://i.imgur.com/ex0V1dD.png', frameWidth: 198, frameHeight: 200 },
+  { key: 'jump', url: 'https://i.imgur.com/rjjoL6C.png', frameWidth: 198, frameHeight: 213 },
+  { key: 'run', url: 'https://i.imgur.com/mCmidmy.png', frameWidth: 190, frameHeight: 200 },
+  { key: 'hit', url: 'https://i.imgur.com/8Qy6dl6.png', frameWidth: 190, frameHeight: 210 },
+  { key: 'dead', url: 'https://i.imgur.com/mCmidmy.png', frameWidth: 198, frameHeight: 200},
+  { key: 'special', url: 'https://i.imgur.com/8Qy6dl6.png', frameWidth: 198, frameHeight: 200},
+  ];
+
+  tronoAnims.forEach(anim => {
+  this.load.spritesheet(`trono_${anim.key}`, anim.url, { frameWidth: anim.frameWidth, frameHeight: anim.frameHeight });
+
+});
+
+                                      //MASSICANDE.PNG
+  const massicandeAnims = [
+  { key: 'idle', url: 'https://i.imgur.com/UPYvDXu.png', frameWidth: 198, frameHeight: 210 },
+  { key: 'attack', url: 'https://i.imgur.com/UPYvDXu.png', frameWidth: 198, frameHeight: 210 },
+  { key: 'attack2', url: 'https://i.imgur.com/5O67RR7.png', frameWidth: 198, frameHeight: 210 },
+  { key: 'jump', url: 'https://i.imgur.com/5O67RR7.png', frameWidth: 198, frameHeight: 219 },
+  { key: 'run', url: 'https://i.imgur.com/GFukdl3.png', frameWidth: 198, frameHeight: 210 },
+  { key: 'hit', url: 'https://i.imgur.com/GFukdl3.png', frameWidth: 198, frameHeight: 210 },
+  { key: 'dead', url: 'https://i.imgur.com/mkt0889.png', frameWidth: 240, frameHeight: 210},
+  { key: 'special', url: 'https://i.imgur.com/SI5jJMQ.png', frameWidth: 590, frameHeight: 210 },
+  ];
+
+  massicandeAnims.forEach(anim => {
+  this.load.spritesheet(`massicande_${anim.key}`, anim.url, { frameWidth: anim.frameWidth, frameHeight: anim.frameHeight });
+});
+
+
+                                                        // AUDIO GIOCO
+
+                                                        // === SUONI PERSONAGGI ===
+// Maggi
+this.load.audio('maggi_sound1', 'https://jazzydukee.github.io/Arka-Sounds/maggi_sound.mp3');
+
+// Trono
+this.load.audio('trono_sound1', 'https://jazzydukee.github.io/Arka-Sounds/trono_vaffa.mp3');
+
+// LIVIO
+this.load.audio('livio_sound1', 'https://jazzydukee.github.io/Arka-Sounds/livio_sound.mp3');
+
+// MELIA
+this.load.audio('melia_sound1', 'https://jazzydukee.github.io/Arka-Sounds/melia_sound.mp3');
+
+// Massicande
+this.load.audio('massi_sound1', 'https://jazzydukee.github.io/Arka-Sounds/massi_sound.mp3');
+
+
+    this.createLoadingBar();
+
+    this.load.on('progress', (value) => {
+      this.progressBar.width = 400 * value;
+      this.progressText.setText(`Caricamento: ${Math.round(value * 100)}%`);
+    });
+
+    
+    this.load.on('complete', () => {
+      console.log("Caricamento completato!");
+      this.loadingBg.destroy();
+      this.progressBg.destroy();
+      this.progressBar.destroy();
+      this.progressText.destroy();
+    });
+
+    this.load.on('filecomplete', (key) => console.log(`Immagine ${key} caricata con successo!`));
+
+    this.load.on('loaderror', (file) => {
+      console.error('Errore caricamento:', file.key, file.src);
+      this.createPlaceholderImage(file.key);
+    });
+  }
+
+  createLoadingBar() {
+    this.loadingBg = this.add.rectangle(GAME_W/2, GAME_H/2, GAME_W, GAME_H, 0x000000, 0.8);
+    this.progressBg = this.add.rectangle(GAME_W/2, GAME_H/2, 400, 20, 0x333333).setOrigin(0.5);
+    this.progressBar = this.add.rectangle(GAME_W/2 - 200, GAME_H/2, 0, 18, 0x4fc3f7).setOrigin(0, 0.5);
+    this.progressText = this.add.text(GAME_W/2, GAME_H/2 + 40, "Caricamento: 0%", { fontSize: "25px", fill: "#fff" }).setOrigin(0.5);
+  }
+
+  createPlaceholderImage(key) {
+    const graphics = this.add.graphics();
+    graphics.fillStyle(key === 'maggi' ? 0x4fc3f7 : key === 'livio' ? 0xff8a65 : 0xff8a21);
+    graphics.fillRect(0, 0, 100, 100);
+    graphics.generateTexture(key, 100, 100);
+    graphics.destroy();
+  }
+
+  create() {
+  const anims = [                          //ANIMAZIONI MAGGI
+    { key: 'maggi_idle',    sheet: 'maggi_idle',    frames: { start: 0, end: 0 }, frameRate: 6, repeat: -1 },
+    { key: 'maggi_attack',  sheet: 'maggi_attack',  frames: { start: 0, end: 2 }, frameRate: 8, repeat: 1 },
+    { key: 'maggi_attack2', sheet: 'maggi_attack2', frames: { start: 1, end: 2 }, frameRate: 5, repeat: 1 },
+    { key: 'maggi_jump',    sheet: 'maggi_jump',  frames: { start: 1, end: 1 }, frameRate: 6, repeat: 5 },
+    { key: 'maggi_run',     sheet: 'maggi_run',     frames: { start: 0, end: 1 }, frameRate: 4, repeat: -1 },
+    { key: 'maggi_special', sheet: 'maggi_special', frames: { start: 0, end: 1 }, frameRate: 4, repeat: 2 },
+    { key: 'maggi_dead',    sheet: 'maggi_dead',    frames: { start: 2, end: 2 }, frameRate: 4, repeat: 100 },
+    { key: 'maggi_hit',     sheet: 'maggi_hit',     frames: { start: 3, end: 3 }, frameRate: 4, repeat: 0 },
+
+                                              //MELIA ANIMAZIONI
+    { key: 'melia_idle',    sheet: 'melia_idle',    frames: { start: 0, end: 0 }, frameRate: 1, repeat: 0 },
+    { key: 'melia_attack',  sheet: 'melia_attack',  frames: { start: 0, end: 1 }, frameRate: 5, repeat: 1 },
+    { key: 'melia_attack2', sheet: 'melia_attack2', frames: { start: 0, end: 1 }, frameRate: 6, repeat: 1 },
+    { key: 'melia_jump',    sheet: 'melia_jump',  frames: { start: 3, end: 3 }, frameRate: 6, repeat: 2 },
+    { key: 'melia_run',     sheet: 'melia_run',     frames: { start: 0, end: 1 }, frameRate: 4, repeat: 4 },
+    { key: 'melia_special', sheet: 'melia_special', frames: { start: 1, end: 2 }, frameRate: 2, repeat: 1 },
+    { key: 'melia_dead',    sheet: 'melia_dead',    frames: { start: 2, end: 2 }, frameRate: 4, repeat: 100 },
+    { key: 'melia_hit',     sheet: 'melia_hit',     frames: { start: 0, end: 0 }, frameRate: 4, repeat: 0 },
+
+                                                //LIVIO ANIMAZIONI
+    { key: 'livio_idle',    sheet: 'livio_idle',    frames: { start: 0, end: 0 }, frameRate: 6, repeat: 0 },
+    { key: 'livio_attack',  sheet: 'livio_attack',  frames: { start: 2, end: 3 }, frameRate: 5, repeat: 1 },
+    { key: 'livio_attack2', sheet: 'livio_attack2', frames: { start: 1, end: 1 }, frameRate: 3, repeat: 1 },
+    { key: 'livio_jump',  sheet: 'livio_jump',  frames: { start: 0, end: 0 }, frameRate: 5, repeat: 4 },
+    { key: 'livio_run',  sheet: 'livio_run',  frames: { start: 1, end: 2 }, frameRate: 5, repeat: 5 },
+    { key: 'livio_hit',  sheet: 'livio_hit',  frames: { start: 2, end: 2 }, frameRate: 5, repeat: 1 },
+    { key: 'livio_dead',  sheet: 'livio_dead',  frames: { start: 3, end: 3 }, frameRate: 5, repeat: 100 },
+    { key: 'livio_special',  sheet: 'livio_special',  frames: { start: 0, end: 1 }, frameRate: 3, repeat: 1 },
+
+    
+
+                                                //TRONO ANIMAZIONI
+    { key: 'trono_idle',    sheet: 'trono_idle',    frames: { start: 0, end: 0 }, frameRate: 2, repeat: 0},
+    { key: 'trono_attack',  sheet: 'trono_attack',  frames: { start: 2, end: 2 }, frameRate: 2, repeat: 1 },
+    { key: 'trono_attack2',  sheet: 'trono_attack2',  frames: { start: 0, end: 1 }, frameRate: 4, repeat: 1 },
+    { key: 'trono_run',  sheet: 'trono_run',  frames: { start: 0, end: 1 }, frameRate: 2, repeat: 1 },
+    { key: 'trono_jump',  sheet: 'trono_jump',  frames: { start: 2, end: 2 }, frameRate: 4, repeat: 1 },
+    { key: 'trono_hit',  sheet: 'trono_hit',  frames: { start: 0, end: 0 }, frameRate: 3, repeat: 0 },
+    { key: 'trono_special',  sheet: 'trono_special',  frames: { start: 1, end: 2 }, frameRate: 4, repeat: 1 },
+    { key: 'trono_dead',  sheet: 'trono_dead',  frames: { start: 2, end: 2 }, frameRate: 4, repeat: 100 },
+                                                                                           
+                                                //MASSICANDE ANIMAZIONI
+
+    { key: 'massicande_idle',    sheet: 'massicande_idle',    frames: { start: 0, end: 0 }, frameRate: 2, repeat: 0},
+    { key: 'massicande_attack',  sheet: 'massicande_attack',  frames: { start: 1, end: 2 }, frameRate: 4, repeat: 1 },
+    { key: 'massicande_attack2',    sheet: 'massicande_attack2',    frames: { start: 1, end: 2 }, frameRate: 4, repeat: 1},
+    { key: 'massicande_jump',    sheet: 'massicande_jump',    frames: { start: 0, end: 0 }, frameRate: 2, repeat: 8},
+    { key: 'massicande_hit',    sheet: 'massicande_hit',    frames: { start: 0, end: 0 }, frameRate: 2, repeat: 0},
+    { key: 'massicande_run',    sheet: 'massicande_run',    frames: { start: 1, end: 2 }, frameRate: 2, repeat: 5},
+    { key: 'massicande_special',    sheet: 'massicande_special',    frames: { start: 0, end: 2 }, frameRate: 2, repeat: 8},
+    { key: 'massicande_dead',    sheet: 'massicande_dead',    frames: { start: 0, end: 0 }, frameRate: 2, repeat: 100},
+
+
+
+
+  ];
+
+  anims.forEach(a => {
+    this.anims.create({
+      key: a.key,
+      frames: this.anims.generateFrameNumbers(a.sheet, a.frames),
+      frameRate: a.frameRate,
+      repeat: a.repeat
+    });
+  });
+
+  this.time.delayedCall(500, () => this.scene.start("Menu")); }
+
+  }
+
+
+// =======================
+// Menu Scene
+// =======================
+class MenuScene extends Phaser.Scene {
+  constructor() { super({ key: 'Menu' }); }
+
+   
+
+
+
+  create() {
+    
+
+    
+
+    
+    if (this.textures.exists('Sfondo')) {
+      const bg = this.add.image(GAME_W/2, GAME_H/2, 'Sfondo').setDisplaySize(GAME_W, GAME_H).setAlpha(0.5);
+    } else {
+      this.add.rectangle(GAME_W/2, GAME_H/2, GAME_W, GAME_H, 0x111133);
+    }
+    this.add.rectangle(GAME_W/2, GAME_H/2, GAME_W, GAME_H, 0x000000, 0.5);
+    this.add.text(GAME_W/2, GAME_H/3, " ARKA FIGHT", { fontSize: "100px", fill: "#380000", fontStyle: "bold", stroke: "#fff", strokeThickness: 1.5 }).setOrigin(0.5);
+    this.add.text(GAME_W/10, GAME_H-18, "created by jazzyduke", { fontSize: "11px", fill: "#aaa", fontStyle: "bold", stroke: "#000", strokeThickness: 1.5}).setOrigin(0.5).setAlpha(0.3);
+
+    const startText = this.add.text(GAME_W/2, GAME_H/1.6, "PREMI INVIO PER INIZIARE", { fontSize: "24px", fill: "#aaa" }).setOrigin(0.5);
+    this.tweens.add({ targets: startText, alpha: 0.3, duration: 800, yoyo: true, repeat: -1 });
+
+    this.input.keyboard.once('keydown-ENTER', () => this.scene.start("CharacterSelect"));
+    
+  }
+}
+
+// =======================
+// Character Select Scene
+// =======================
+class CharacterSelectScene extends Phaser.Scene {
+  constructor() { 
+    super({ key: 'CharacterSelect' }); 
+  }
+
+  
+
+  create() {
+
+  if (!this.sound.get('Boss')) {
+    this.bossMusic = this.sound.add('Boss', { loop: true, volume: 0.2 });
+    this.bossMusic.play();
+  } else {
+    this.bossMusic = this.sound.get('Boss');
+    if (!this.bossMusic.isPlaying) this.bossMusic.play();
+  }
+
+
+
+    if (this.textures.exists('Sfondo')) {
+      this.add.image(GAME_W/2, GAME_H/2, 'Sfondo')
+          .setDisplaySize(GAME_W, GAME_H)
+          .setAlpha(0.2);
+    }
+
+    this.cameras.main.fadeIn(800, 0, 0, 0);
+
+    this.add.rectangle(GAME_W/2, GAME_H/2, GAME_W, GAME_H, 0x000000, 0.5);
+    const startText = this.add.text(
+      GAME_W/2, 20, " SELEZIONE PERSONAGGI", 
+      { fontSize: "30px", fill: "#fff", fontStyle: "bold", stroke: "#000", strokeThickness: 2 }
+    ).setOrigin(0.5);
+
+    this.add.text(
+      (GAME_W/2)-5, 300, "VS", 
+      { fontSize: "50px", fill: "#fff", fontStyle: "bold", stroke: "#000", strokeThickness: 2 }
+    ).setOrigin(0.5);
+    this.tweens.add({ targets: startText, alpha: 0.3, duration: 800, yoyo: true, repeat: -1 });
+
+    this.keys = Object.keys(FIGHTERS); // tutti i personaggi
+    this.lockedCharacters = ['maronn']; // <- qui decidi chi è bloccato
+
+    this.p1Cursor = 0;
+    this.p2Cursor = 1;
+    this.p1Selected = false;
+    this.p2Selected = false;
+
+    this.createPlayerSections();
+    this.setupControls();
+    this.updateDisplay();
+  }
+
+  createPlayerSections() {
+    const p1X = GAME_W * 0.25;
+    const p2X = GAME_W * 0.75;
+    const centerY = GAME_H / 2;
+    
+    // P1
+    this.add.text(50, 50, "GIOCATORE 1", { fontSize: "24px", fill: "#4fc3f7", fontStyle: "bold" }).setOrigin(0, 0);
+    this.p1AvatarBg = this.add.circle(p1X, centerY, 0, 0x2a2b45, 0).setStrokeStyle(4, 0x4fc3f7);
+    this.p1Avatar = this.add.image(p1X, centerY - 40, this.keys[this.p1Cursor]);
+    this.p2Avatar = this.add.image(p2X, centerY - 40, this.keys[this.p2Cursor]);
+    this.add.rectangle(GAME_W/2, 500, GAME_W, 245, 0x1a1a2e, 0.98)
+    fitImage(this.p1Avatar, 200, 200);
+       
+    this.p1NameBg = this.add.rectangle(p1X, centerY + 80, 200, 50, 0x1a1a2e, 0.9).setStrokeStyle(2, 0x4fc3f7);
+    this.p1NameText = this.add.text(p1X, centerY + 80, FIGHTERS[this.keys[this.p1Cursor]].name, { fontSize: "28px", fill: "#ffffff", fontStyle: "bold" }).setOrigin(0.5);
+    this.p1StatusText = this.add.text(p1X, centerY + 120, "", { fontSize: "16px", fill: "#4fc3f7", fontStyle: "bold" }).setOrigin(1, 0);
+
+    // P2
+    this.add.text(GAME_W - 50, 50, "GIOCATORE 2", { fontSize: "24px", fill: "#ff8a65", fontStyle: "bold" }).setOrigin(1, 0);
+    this.p2AvatarBg = this.add.circle(p2X, centerY, 0, 0x2a2b45, 0).setStrokeStyle(4, 0xff8a65);
+    fitImage(this.p2Avatar, 200, 200);
+    this.p2NameBg = this.add.rectangle(p2X, centerY + 80, 200, 50, 0x1a1a2e, 0.9).setStrokeStyle(2, 0xff8a65);
+    this.p2NameText = this.add.text(p2X, centerY + 80, FIGHTERS[this.keys[this.p2Cursor]].name, { fontSize: "28px", fill: "#ffffff", fontStyle: "bold" }).setOrigin(0.5);
+    this.p2StatusText = this.add.text(p2X, centerY + 120, "", { fontSize: "16px", fill: "#ff8a65", fontStyle: "bold" }).setOrigin(0, 0);
+
+    this.startInstructions = this.add.text(GAME_W/2, GAME_H - 50, "", { fontSize: "25px", fill: "#4fc3f7", fontStyle: "bold" }).setOrigin(0.5);
+  }
+
+  setupControls() {
+    const setupPlayerControls = (leftKey, rightKey, selectKey, cursorProp, selectedProp, color) => {
+      this.input.keyboard.on('keydown-' + leftKey, () => {
+        if (!this[selectedProp]) {
+          this[cursorProp] = (this[cursorProp] - 1 + this.keys.length) % this.keys.length;
+          this.updateDisplay();
+          this.playScrollSound();
+        }
+      });
+
+      this.input.keyboard.on('keydown-' + rightKey, () => {
+        if (!this[selectedProp]) {
+          this[cursorProp] = (this[cursorProp] + 1) % this.keys.length;
+          this.updateDisplay();
+          this.playScrollSound();
+        }
+      });
+
+      this.input.keyboard.on('keydown-' + selectKey, () => {
+        const currentChar = this.keys[this[cursorProp]];
+        if (!this[selectedProp]) {
+          if (this.lockedCharacters.includes(currentChar)) {
+            this.playErrorSound(); // suono errore
+            return; // non seleziona
+          }
+          gameState[selectedProp === 'p1Selected' ? 'selectedP1' : 'selectedP2'] = currentChar;
+          this[selectedProp] = true;
+          this.playSelectSound();
+        } else {
+          gameState[selectedProp === 'p1Selected' ? 'selectedP1' : 'selectedP2'] = null;
+          this[selectedProp] = false;
+        }
+        this.updateDisplay();
+      });
+    };
+
+    // P1: A/D per muoversi, J per selezionare/deselezionare
+    setupPlayerControls('A', 'D', 'J', 'p1Cursor', 'p1Selected', 0x4fc3f7);
+
+    // P2: LEFT/RIGHT per muoversi, K per selezionare/deselezionare
+    setupPlayerControls('LEFT', 'RIGHT', 'K', 'p2Cursor', 'p2Selected', 0xff8a65);
+
+    this.input.keyboard.on('keydown-ENTER', () => {
+      if (this.p1Selected && this.p2Selected) this.scene.start("ArenaSelect");
+    });
+  }
+
+  updateDisplay() {
+    const p1Key = this.keys[this.p1Cursor];
+    this.p1Avatar.setTexture(p1Key); fitImage(this.p1Avatar, 400, 400);
+    this.p1NameText.setText(FIGHTERS[p1Key].name);
+
+    if (this.lockedCharacters.includes(p1Key)) {
+      this.p1Avatar.setTint(0x808080); // grigio
+      this.p1StatusText.setText("✖ BLOCCATO");
+      this.p1StatusText.setFill("#ff4444");
+    } else {
+      this.p1Avatar.clearTint();
+      this.p1StatusText.setText(this.p1Selected ? "✓ SELEZIONATO" : "Usa A/D per scegliere \n\nJ per confermare o \nannullare");
+      this.p1AvatarBg.setStrokeStyle(4, this.p1Selected ? 0x00ff00 : 0x4fc3f7);
+      this.p1NameBg.setStrokeStyle(2, this.p1Selected ? 0x00ff00 : 0x4fc3f7);
+      this.p1StatusText.setFill(this.p1Selected ? "#00ff00" : "#4fc3f7");
+    }
+
+    const p2Key = this.keys[this.p2Cursor];
+    this.p2Avatar.setTexture(p2Key); fitImage(this.p2Avatar, 400, 400);
+    this.p2NameText.setText(FIGHTERS[p2Key].name);
+
+    if (this.lockedCharacters.includes(p2Key)) {
+      this.p2Avatar.setTint(0x808080
+      );
+      this.p2StatusText.setText("✖ BLOCCATO");
+      this.p2StatusText.setFill("#ff4444");
+    } else {
+      this.p2Avatar.clearTint();
+      this.p2StatusText.setText(this.p2Selected ? "✓ SELEZIONATO" : "Usa frecce per scegliere \n\nK per confermare o \nannullare");
+      this.p2AvatarBg.setStrokeStyle(4, this.p2Selected ? 0x00ff00 : 0xff8a65);
+      this.p2NameBg.setStrokeStyle(2, this.p2Selected ? 0x00ff00 : 0xff8a65);
+      this.p2StatusText.setFill(this.p2Selected ? "#00ff00" : "#ff8a65");
+    }
+
+    if (this.p1Selected && this.p2Selected) {
+      this.startInstructions.setText("PREMI INVIO PER SCEGLIERE L'ARENA");
+      this.tweens.killTweensOf(this.startInstructions);
+      this.tweens.add({ targets: this.startInstructions, alpha: 0.4, duration: 600, yoyo: true, repeat: -1 });
+    } else {
+      this.startInstructions.setText("Entrambi i giocatori devono selezionare un personaggio");
+      this.startInstructions.setAlpha(0.7);
+      this.tweens.killTweensOf(this.startInstructions);
+    }
+  }
+
+  playScrollSound() {
+    const flash = this.add.circle(GAME_W/2, 300, 5, 0xffffff, 0.8);
+    this.tweens.add({ targets: flash, scaleX: 2, scaleY: 2, alpha: 0, duration: 150, onComplete: () => flash.destroy() });
+  }
+  
+  playSelectSound() {
+    const flash = this.add.circle(GAME_W/2, 300, 15, 0x00ff00, 0.9);
+    this.tweens.add({ targets: flash, scaleX: 3, scaleY: 3, alpha: 0, duration: 300, onComplete: () => flash.destroy() });
+  }
+
+  playErrorSound() {
+    const flash = this.add.circle(GAME_W/2, 300, 15, 0xff0000, 0.9);
+    this.tweens.add({ targets: flash, scaleX: 3, scaleY: 3, alpha: 0, duration: 300, onComplete: () => flash.destroy() });
+  }
+}
+
+//===================================================
+//ARENA SELECT SCENE================================
+
+class ArenaSelectScene extends Phaser.Scene {
+  constructor() { super({ key: 'ArenaSelect' }); }
+
+  create() {
+     if (this.textures.exists('Sfondo')) {
+      this.add.image(GAME_W/2, GAME_H/2, 'Sfondo').setDisplaySize(GAME_W, GAME_H).setAlpha(0.25);
+    }
+    this.add.text(GAME_W/2, 50, "<-- SELEZIONE ARENA -->", {
+      fontSize: "40px", fill: "#fff", fontStyle: "bold"
+    }).setOrigin(0.5);
+    this.add.text(GAME_W/2, 100, "Usa frecce e premi invio", {
+      fontSize: "20px", fill: "#fff", fontStyle: "bold"
+    }).setOrigin(0.5)
+    // Effetto fade-in quando la scena parte
+this.cameras.main.fadeIn(800, 0, 0, 0);
+
+
+    this.keys = Object.keys(ARENAS);
+    this.cursor = 0;
+
+    this.arenaImage = this.add.image(GAME_W/2, GAME_H/2, this.keys[this.cursor]).setAlpha(0.9);
+    fitImage(this.arenaImage, 400, 200)
+    
+
+    this.arenaName = this.add.text(GAME_W/2, GAME_H - 80, ARENAS[this.keys[this.cursor]].name, {
+      fontSize: "32px", fill: "#ff0"
+    }).setOrigin(0.5);
+
+    this.input.keyboard.on('keydown-LEFT', () => {
+      this.cursor = (this.cursor - 1 + this.keys.length) % this.keys.length;
+      this.updateDisplay();
+    });
+
+    this.input.keyboard.on('keydown-RIGHT', () => {
+      this.cursor = (this.cursor + 1) % this.keys.length;
+      this.updateDisplay();
+    });
+
+    this.input.keyboard.once('keydown-ENTER', () => {
+      gameState.selectedArena = this.keys[this.cursor];
+      this.scene.start("Controls");
+
+        
+    });
+  }
+
+  updateDisplay() {
+    this.arenaImage.setTexture(this.keys[this.cursor]);
+    fitImage(this.arenaImage, 400, 200);
+    this.arenaName.setText(ARENAS[this.keys[this.cursor]].name);
+  }
+}
+
+// =======================
+// Controls Scene
+// =======================
+
+class ControlsScene extends Phaser.Scene {
+  constructor() { super({ key: 'Controls' }); }
+
+  create() {
+
+   
+
+    // Mostra immagine comandi
+    const img = this.add.image(GAME_W/2, GAME_H/2, 'controlsScreen');
+   
+    this.add.text(GAME_W/2, GAME_H - 500, "CONTROLLI", {
+      fontSize: "50px", fill: "#fff", stroke: "#000", strokeThickness: 3
+    }).setOrigin(0.5);
+
+  
+    // Testo "premi invio"
+    const startText = this.add.text(GAME_W/2, GAME_H - 50, "PREMI INVIO PER COMBATTERE", {
+      fontSize: "28px", fill: "#fff", stroke: "#000", strokeThickness: 3
+    }).setOrigin(0.5);
+
+    
+
+    this.tweens.add({ targets: startText, alpha: 0.3, duration: 800, yoyo: true, repeat: -1 });
+
+    // Avanza alla scena di combattimento con invio
+    this.input.keyboard.once('keydown-ENTER', () => {
+      this.scene.start("Fight");
+    });
+  }
+}
+
+
+
+
+
+// =======================
+// Fight Scene (aggiornata con animazioni e flip)
+// =======================
+
+class FightScene extends Phaser.Scene {
+  
+  constructor() { super({ key: 'Fight' });
+
+
+// Configurazione dati degli attacchi
+this.attacksData = {
+  attack:  { activeFrames: [1], hitboxWidth: 80, damage: 10 },
+  attack2: { activeFrames: [1], hitboxWidth: 80, damage: 15 },
+  special: { activeFrames: [1], hitboxWidth: 50, damage: 25 }
+};
+ }
+
+  create() {
+
+     const bossMusic = this.sound.get('Boss');
+  if (bossMusic && bossMusic.isPlaying) {
+    bossMusic.stop();
+  }
+  
+//musica fight
+    if (!this.sound.get('Fight')) {
+    this.fightMusic = this.sound.add('Fight', { loop: true, volume: 0.2});
+    this.fightMusic.play();
+  } else {
+    this.fightMusic = this.sound.get('Fight');
+    if (!this.fightMusic.isPlaying) this.fightMusic.play();
+  }
+
+
+ 
+const arenaKey = gameState.selectedArena || 'CAMPO_K';
+this.add.image(GAME_W/2, GAME_H/2, arenaKey).setDisplaySize(GAME_W, GAME_H).setAlpha(0.45);
+
+
+    const ground = this.add.rectangle(GAME_W/2, GAME_H, GAME_W, 0, 0x333355);
+    this.physics.add.existing(ground, true);
+
+    this.cameras.main.fadeIn(1500, 0, 0, 0);
+    
+
+    this.roundTime = 40;
+    this.roundActive = true;
+    this.scores = { p1: 0, p2: 0 };
+
+    // UI
+    this.timerText = this.add.text(GAME_W/2, 20, this.roundTime, { 
+      fontSize: "50px", 
+      fill: "#fff",
+      fontStyle: "bold",
+      stroke: "#000",
+      strokeThickness: 2
+    }).setOrigin(0.5);
+    
+    this.scoreText = this.add.text(GAME_W/2, 60, "0 - 0", { 
+      fontSize: "24px", 
+      fill: "#fff",
+      fontStyle: "bold"
+    }).setOrigin(0.5);
+
+    const p1Key = gameState.selectedP1 || 'maggi'; // PRIMA ERA SOLO LIVIO E MAGGI
+    const p2Key = gameState.selectedP2 || 'livio';
+    const p1Data = FIGHTERS[p1Key];
+    const p2Data = FIGHTERS[p2Key];
+
+    // Nomi personaggiF
+    this.add.text(20, 43, p1Data.name, { fontSize: "30px", fill: "#fff", fontStyle: "italic",stroke:"0x000000", strokeThickness:4 });
+    this.add.text(GAME_W-20, 43, p2Data.name, { fontSize: "30px", fill: "#fff", fontStyle: "italic",stroke:"0x000000", strokeThickness:4 }).setOrigin(1, 0);
+
+    // Crea fighters
+    this.p1 = this.createFighter(200, GAME_H, p1Data, p1Key, 1);
+    this.physics.add.collider(this.p1.sprite, ground);
+    this.p2 = this.createFighter(760, GAME_H , p2Data, p2Key, -1); // GRANDEZZA PX DIVERSA?????
+    this.physics.add.collider(this.p2.sprite, ground);
+
+    // Collisioni attacco
+    this.physics.add.overlap(this.p1.hitbox, this.p2.sprite, () => this.handleHit(this.p1, this.p2));
+    this.physics.add.overlap(this.p2.hitbox, this.p1.sprite, () => this.handleHit(this.p2, this.p1));
+    
+
+    // Controlli
+    this.setupControls();
+
+    // Barre vita
+    this.createHealthBars();
+
+    // Annuncio round
+    this.announcement = this.add.text(GAME_W/2, GAME_H/2, "ROUND 1", { 
+      fontSize: "48px", 
+      fill: "#fff",
+      fontStyle: "bold",
+      stroke: "#000",
+      strokeThickness: 3
+    }).setOrigin(0.5);
+    
+    this.time.delayedCall(2000, () => this.announcement.setText(""));
+    
+
+    this.startTimer();
+  }
+  
+  setupControls() {
+    this.controlsP1 = {
+      left: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A),
+      right: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D),
+      jump: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W),
+      punch: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.Z),
+      kick: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.X),
+      special: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.C),
+
+
+
+    };
+    this.controlsP2 = {
+      left: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.LEFT),
+      right: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.RIGHT),
+      jump: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.UP),
+      punch: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.B),
+      kick: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.N),
+      special: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.M),
+    };
+  }
+  
+createHealthBars() {
+    // Player 1
+    const p1Container = this.add.container(20, 20);
+    p1Container.add(this.add.rectangle(0, 0, 204, 24, 0x000000).setOrigin(0,0));
+    this.healthBarP1 = this.add.rectangle(2, 2, 200, 20, 0x7f0000).setOrigin(0,0);
+    p1Container.add(this.healthBarP1);
+
+    // Player 2
+    const p2Container = this.add.container(GAME_W-224, 20);
+    p2Container.add(this.add.rectangle(0, 0, 204, 24, 0x000000).setOrigin(0,0));
+    this.healthBarP2 = this.add.rectangle(2, 2, 200, 20, 0x7f0000).setOrigin(0,0);
+    p2Container.add(this.healthBarP2);
+}
+
+  startTimer() {
+    this.time.addEvent({
+      delay: 1000,
+      loop: true,
+      callback: () => {
+        if (!this.roundActive) return;
+        this.roundTime--;
+        this.timerText.setText(this.roundTime);
+        if (this.roundTime <= 0) this.endRound();
+      }
+    });
+  }
+
+createFighter(x, y, data, key, facing) {
+
+// Suono intro P1
+if (FIGHTER_SOUNDS[key]?.start) {
+  this.sound.play(FIGHTER_SOUNDS[key].start, { volume: 0.3 });
+}
+
+
+// Suono intro P2
+this.time.delayedCall(1, () => {      //DELAYED CALL PRIMA ERA 800 (PROBLEMA AUDIO DOPPIO)
+if (FIGHTER_SOUNDS[key]?.start) {
+  this.sound.play(FIGHTER_SOUNDS[key].start, { volume: 0.3 });
+}
+
+});
+
+
+    let sprite;
+
+    // Se esistono animazioni per questo fighter, usiamo lo sprite animato
+    if (this.textures.exists(key + "_idle")) {
+        sprite = this.add.sprite(x, y, key + "_idle");
+        sprite.play(key + "_idle");
+
+        // Imposta scala personalizzata dal dato del personaggio
+        const scale = data.scale || 2; // default 2 se non definito
+        sprite.setScale(scale);
+
+        this.physics.add.existing(sprite);
+    } else {
+        // Fallback: rettangolo colorato
+        sprite = this.add.rectangle(x, y, 50, 100, data.color);
+        const scale = data.scale || 2;
+        sprite.setScale(scale);
+        this.physics.add.existing(sprite);
+    }
+
+    sprite.body.setCollideWorldBounds(true);
+    sprite.body.setDragX(600);
+    sprite.body.setMaxVelocity(data.stats.speed, 600);
+
+    // Hitbox
+    const hitbox = this.add.zone(x, y, 40, 40);
+    this.physics.add.existing(hitbox);
+    hitbox.body.setAllowGravity(false);
+    hitbox.body.enable = false;
+
+    return { sprite, hitbox, data, health: data.stats.health, key, facing, attacking: false };
+    
+}
+
+
+handleHit(attacker, defender) {
+    if (!attacker.attacking || !this.roundActive || defender.controlsDisabled || defender.hitReact) return;
+
+    // Riduzione vita
+    defender.health -= attacker.data.stats.damage;
+    if (defender.health < 0) defender.health = 0;
+
+    // Feedback spinta: sempre indietro rispetto all'attaccante
+    const push = 200;
+    defender.sprite.body.setVelocityX(push * (defender.sprite.x < attacker.sprite.x ? -1 : 1));
+
+    // Blocca controlli e avvia animazione hit
+    defender.hitReact = true;
+    defender.sprite.play(defender.key + "_hit", true);
+
+    defender.sprite.once('animationcomplete', () => {
+        defender.hitReact = false;
+
+        if (defender.health <= 0) {
+            defender.controlsDisabled = true;
+            defender.sprite.body.setVelocity(0, 0);
+            defender.sprite.play(defender.key + "_dead", true);
+            this.endRound(); // termina round se KO
+        }
+    });
+
+    
+
+    // Effetto visivo colpo
+    this.createHitEffect(defender.sprite.x, defender.sprite.y - 20);
+
+    const hitSounds = ['hit1', 'hit2', 'hit3'];
+      const chosen = Phaser.Utils.Array.GetRandom(hitSounds);
+      this.sound.play(chosen, { volume: 0.6 });
+
+
+
+    // Aggiorna barre vita
+    this.updateHealthBars();
+
+    // Fine attacco dell'attaccante
+    attacker.attacking = false;
+    attacker.hitbox.body.enable = false;
+}
+
+
+  
+  createHitEffect(x, y) {
+    const effect = this.add.circle(x, y, 50, 0xA5184F, 0.8);
+    this.tweens.add({
+      targets: effect,
+      scaleX: 2,
+      scaleY: 2,
+      alpha: 0,
+      duration: 300,
+      onComplete: () => effect.destroy()
+    });
+  }
+
+  
+
+  updateHealthBars() {
+    this.healthBarP1.width = (this.p1.health / this.p1.data.stats.health) * 200;
+    this.healthBarP2.width = (this.p2.health / this.p2.data.stats.health) * 200;
+  }
+  performAttack(f, animKey, hitFrame, damage) {
+    if (f.attacking) return;
+    f.attacking = true;
+
+    f.sprite.play(f.key + "_" + animKey);
+
+    f.hitbox.body.enable = false;
+
+    f.sprite.on('animationupdate', (anim, frame) => {
+      if (anim.key === f.key + "_" + animKey) {
+        if (frame.index === hitFrame) {
+          f.hitbox.body.enable = true;
+          f.hitbox.setPosition(f.sprite.x + 40 * f.facing, f.sprite.y);
+          f.data.stats.damage = damage;
+        } else {
+          f.hitbox.body.enable = false;
+        }
+      }
+    });
+
+    f.sprite.once('animationcomplete', () => {
+      f.sprite.play(f.key + "_idle");
+      f.attacking = false;
+      f.hitbox.body.enable = false;
+    });
+  }
+  
+endRound() {
+    if (!this.roundActive) return;
+    this.roundActive = false;
+
+    let winner, loser;
+    if (this.p1.health > this.p2.health) {
+      this.scores.p1++;
+      winner = this.p1;
+      loser = this.p2;
+    } else if (this.p2.health > this.p1.health) {
+      this.scores.p2++;
+      winner = this.p2;
+      loser = this.p1;
+    } else {
+      winner = null;
+      loser = null;
+    }
+
+    if (loser) {
+      // Blocca controlli e avvia animazione di sconfitta
+      loser.controlsDisabled = true;
+      loser.sprite.body.setVelocity(0, 0);
+      loser.sprite.play(loser.key + "_dead");
+    }
+
+    
+
+    // Annuncio vincitore
+    const winnerText = winner ? winner.data.name.toUpperCase() + " VINCE!" : "PAREGGIO!";
+    this.announcement.setText(winnerText);
+    this.scoreText.setText(`${this.scores.p1} - ${this.scores.p2}`);
+
+    // Passaggio alla scena victory o round successivo
+    this.time.delayedCall(3000, () => {
+      if (this.scores.p1 >= 2 || this.scores.p2 >= 2) {
+        this.scene.start("Victory", { winner: winnerText });
+      } else {
+        this.startNextRound();
+      }
+    });
+}
+
+
+
+startNextRound() {
+    this.roundTime = 40;
+    this.timerText.setText(this.roundTime);
+    this.announcement.setText("PROSSIMO ROUND!");
+    this.time.delayedCall(2000, () => this.announcement.setText(""));
+
+    // Reset vita
+    this.p1.health = this.p1.data.stats.health;
+    this.p2.health = this.p2.data.stats.health;
+    this.updateHealthBars();
+
+    // Reset posizione
+    this.p1.sprite.setPosition(200, GAME_H-100);
+    this.p2.sprite.setPosition(760, GAME_H-100);
+
+    // Riabilita controlli e reazioni
+    this.p1.controlsDisabled = false;
+    this.p1.hitReact = false;
+    this.p2.controlsDisabled = false;
+    this.p2.hitReact = false;
+
+    // Ripristina animazioni idle
+    this.p1.sprite.play(this.p1.key + "_idle", true);
+    this.p2.sprite.play(this.p2.key + "_idle", true);
+
+    this.roundActive = true;
+}
+
+
+  update() {
+    if (!this.roundActive) return;
+    this.updateFighter(this.p1, this.controlsP1, 1);
+    this.updateFighter(this.p2, this.controlsP2, -1);
+  }
+
+
+updateFighter(f, controls) {
+  const body = f.sprite.body;
+  const isOnGround = body.blocked.down;
+  const moving = controls.left.isDown || controls.right.isDown;
+
+  // Blocca tutto se KO o mentre riceve colpo
+  if (f.controlsDisabled || f.hitReact) return;
+
+  // ----------------- Movimento orizzontale -----------------
+  if (controls.left.isDown) {
+    body.setVelocityX(-f.data.stats.speed);
+    f.sprite.setFlipX(true);
+    f.facing = -1;
+  } else if (controls.right.isDown) {
+    body.setVelocityX(f.data.stats.speed);
+    f.sprite.setFlipX(false);
+    f.facing = 1;
+  } else if (isOnGround) {
+    body.setVelocityX(0);
+  }
+
+  // ----------------- Salto -----------------
+  if (Phaser.Input.Keyboard.JustDown(controls.jump) && isOnGround) {
+    body.setVelocityY(-f.data.stats.jump);
+    if (!f.attacking) f.sprite.play(f.key + "_jump", true);
+  }
+
+  // ----------------- Attacchi -----------------
+  const startAttack = (animSuffix) => {
+    const attackKey = f.key + "_" + animSuffix;
+    const attackConfig = this.attacksData[animSuffix];
+
+    f.attacking = true;
+
+    f.sprite.off('animationupdate');
+    f.sprite.off('animationcomplete');
+
+    f.sprite.play(attackKey);
+
+    f.sprite.on('animationupdate', (anim, frame) => {
+      if (anim.key === attackKey) {
+        if (attackConfig.activeFrames.includes(frame.index)) {
+          f.hitbox.body.enable = true;
+          f.hitbox.setSize(attackConfig.hitboxWidth, f.hitbox.body.height);
+          f.hitbox.setPosition(f.sprite.x + 5 * f.facing, f.sprite.y);
+        } else {
+          f.hitbox.body.enable = false;
+          f.hitbox.setSize(40, f.hitbox.body.height);
+        }
+      }
+    });
+
+    f.sprite.once('animationcomplete', () => {
+      f.attacking = false;
+      f.hitbox.body.enable = false;
+      f.hitbox.setSize(40, f.hitbox.body.height);
+    });
+  };
+
+if (Phaser.Input.Keyboard.JustDown(controls.punch) && !f.attacking) {
+  startAttack("attack");
+}
+else if (Phaser.Input.Keyboard.JustDown(controls.kick) && !f.attacking) {
+  startAttack("attack2");
+}
+else if (Phaser.Input.Keyboard.JustDown(controls.special) && !f.attacking) {
+  startAttack("special");
+}
+
+
+  // ----------------- Animazioni normali (idle/run/jump) -----------------
+  if (!f.attacking) {
+    const current = f.sprite.anims.currentAnim?.key;
+
+    if (!isOnGround) {
+      const want = f.key + "_jump";
+      if (current !== want) f.sprite.play(want, true);
+    } else if (moving) {
+      const want = f.key + "_run";
+      if (current !== want) f.sprite.play(want, true);
+    } else {
+      const want = f.key + "_idle";
+      if (current !== want) f.sprite.play(want, true);
+    }
+  }
+}
+
+
+}
+
+
+
+
+
+
+// =======================
+// Victory Scene
+// =======================
+class VictoryScene extends Phaser.Scene {
+  constructor() { super({ key: 'Victory' }); }
+
+  create(data) {
+
+
+    
+
+    if (this.textures.exists('Sfondo')) {
+      const bg = this.add.image(GAME_W/2, GAME_H/2, 'Sfondo').setDisplaySize(GAME_W, GAME_H);
+      bg.setAlpha(0.3);
+    }
+    this.add.rectangle(GAME_W/2, GAME_H/2, GAME_W, GAME_H, 0x000000, 0.7);
+    
+    this.add.text(GAME_W/2, GAME_H/2 - 40, data.winner, { 
+      fontSize: "48px", 
+      fill: "#fff",
+      fontStyle: "bold",
+      stroke: "#000",
+      strokeThickness: 3
+    }).setOrigin(0.5);
+    
+    const restartText = this.add.text(GAME_W/2, GAME_H/2 + 40, "PREMI INVIO PER TORNARE AL MENU", { 
+      fontSize: "20px", 
+      fill: "#aaa" 
+    }).setOrigin(0.5);
+    
+    // Effetto lampeggiante
+    this.tweens.add({
+      targets: restartText,
+      alpha: 0.3,
+      duration: 800,
+      yoyo: true,
+      repeat: -1
+    });
+
+    this.input.keyboard.on('keydown-ENTER', () => {
+      this.scene.start("Menu");
+
+               const fightMusic = this.sound.get('Fight');
+  if (fightMusic && fightMusic.isPlaying) {
+    fightMusic.stop();
+  }
+    });
+  }
+}
+
+// =======================
+// Config gioco
+// =======================
+const config = {
+  type: Phaser.AUTO,
+  width: GAME_W,
+  height: GAME_H,
+  parent: 'game',
+  backgroundColor: '#12132b',
+  scale: {                           
+    mode: Phaser.Scale.FIT,
+    autoCenter: Phaser.Scale.CENTER_BOTH,
+    width: GAME_W,
+    height: GAME_H
+  },                               
+  physics: { default: 'arcade', arcade: { gravity: { y: 1000 }, debug: false } },
+  scene: [PreloadScene, MenuScene, CharacterSelectScene,ArenaSelectScene,ControlsScene,FightScene, VictoryScene] //AGGIUNGI ARENA ArenaSelectScene
+};
+
+new Phaser.Game(config);
+</script>
+</body>
+</html>
